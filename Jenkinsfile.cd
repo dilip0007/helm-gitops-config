@@ -14,7 +14,7 @@ pipeline {
         // Target Kubernetes namespace and ArgoCD application name
         K8S_NAMESPACE   = 'hello-kubernetes-ns'
         ARGOCD_APP_NAME = 'hello-kubernetes-gitops'
-        APP_HEALTH_URL  = 'http://localhost:8081'
+        APP_HEALTH_URL  = 'http://127.0.0.1:8081'
         HELM_CHART_DIR  = 'hello-kubernetes'
     }
 
@@ -88,11 +88,18 @@ pipeline {
 
         stage('5. Smoke Test') {
             steps {
+                // Wait for keep-ports-open.sh to revive the port-forward
+                // after pods restarted during rollout (port 8081 → hello-kubernetes-ns)
+                echo 'Waiting 20s for port-forward tunnel to stabilise after rollout...'
+                sleep(time: 20, unit: 'SECONDS')
+
                 echo "Running smoke test against ${env.APP_HEALTH_URL}..."
                 retry(3) {
                     script {
+                        // Sleep between retries so port-forward has time to recover
+                        sleep(time: 10, unit: 'SECONDS')
                         def httpStatus = sh(
-                            script: "curl -s -o /dev/null -w '%{http_code}' ${env.APP_HEALTH_URL} --connect-timeout 5",
+                            script: "curl -4 -s -o /dev/null -w '%{http_code}' ${env.APP_HEALTH_URL} --connect-timeout 10 --max-time 15",
                             returnStdout: true
                         ).trim()
                         if (httpStatus == '200') {
@@ -130,6 +137,11 @@ ArgoCD App: ${env.ARGOCD_APP_NAME}
 ============================================================"""
         }
         always {
+            echo 'Cleaning up workspace...'
+            cleanWs()
+            echo 'Cleaning up Docker build cache and dangling images...'
+            sh 'docker builder prune -f'
+            sh 'docker image prune -f'
             echo 'CD pipeline finished.'
         }
     }
