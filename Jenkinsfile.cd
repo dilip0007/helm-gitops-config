@@ -9,13 +9,13 @@ pipeline {
 
     environment {
         // Execution PATH for macOS binaries
-        PATH = "/usr/local/bin:/opt/homebrew/bin:${env.PATH}"
+        PATH            = "/usr/local/bin:/opt/homebrew/bin:${env.PATH}"
 
         // Target Kubernetes namespace and ArgoCD application name
-        K8S_NAMESPACE       = "hello-kubernetes-ns"
-        ARGOCD_APP_NAME     = "hello-kubernetes-gitops"
-        APP_HEALTH_URL      = "http://localhost:8081"
-        HELM_CHART_DIR      = "hello-kubernetes"
+        K8S_NAMESPACE   = 'hello-kubernetes-ns'
+        ARGOCD_APP_NAME = 'hello-kubernetes-gitops'
+        APP_HEALTH_URL  = 'http://localhost:8081'
+        HELM_CHART_DIR  = 'hello-kubernetes'
     }
 
     stages {
@@ -24,16 +24,16 @@ pipeline {
             steps {
                 checkout scm
                 script {
-                    // Extract the image tag that was just bumped by the CI pipeline
+                    // Extract the image tag using sed (no dollar-sign issues)
                     env.NEW_IMAGE_TAG = sh(
-                        script: "grep 'tag:' ${HELM_CHART_DIR}/values.yaml | awk '{print \\$2}' | tr -d '\"'",
+                        script: "grep 'tag:' ${env.HELM_CHART_DIR}/values.yaml | sed \"s/.*tag: //;s/\\\"//g\"",
                         returnStdout: true
                     ).trim()
                     echo "==================================================="
                     echo "🚀 CD Pipeline triggered!"
-                    echo "   New image tag detected: ${env.NEW_IMAGE_TAG}"
-                    echo "   ArgoCD App:             ${ARGOCD_APP_NAME}"
-                    echo "   Target Namespace:       ${K8S_NAMESPACE}"
+                    echo "   New image tag detected : ${env.NEW_IMAGE_TAG}"
+                    echo "   ArgoCD App             : ${env.ARGOCD_APP_NAME}"
+                    echo "   Target Namespace        : ${env.K8S_NAMESPACE}"
                     echo "==================================================="
                 }
             }
@@ -41,21 +41,21 @@ pipeline {
 
         stage('2. Validate Helm Chart') {
             steps {
-                echo "Running helm lint on ${HELM_CHART_DIR}..."
-                sh "helm lint ${HELM_CHART_DIR}/"
+                echo "Running helm lint on ${env.HELM_CHART_DIR}..."
+                sh "helm lint ${env.HELM_CHART_DIR}/"
                 echo "✅ Helm chart validation passed."
             }
         }
 
         stage('3. Trigger ArgoCD Sync') {
             steps {
-                echo "Triggering immediate ArgoCD sync for app: ${ARGOCD_APP_NAME}..."
-                sh """
-                    kubectl patch app ${ARGOCD_APP_NAME} \
+                echo "Triggering immediate ArgoCD sync for app: ${env.ARGOCD_APP_NAME}..."
+                sh '''
+                    kubectl patch app hello-kubernetes-gitops \
                         -n argocd \
                         --type merge \
                         -p '{"operation":{"sync":{"prune":true}}}'
-                """
+                '''
                 echo "✅ ArgoCD sync triggered."
 
                 // Give ArgoCD a moment to pick up the sync operation
@@ -65,40 +65,40 @@ pipeline {
 
         stage('4. Verify Deployment Rollout') {
             steps {
-                echo "Waiting for deployment rollout to complete in namespace: ${K8S_NAMESPACE}..."
+                echo "Waiting for deployment rollout to complete in namespace: ${env.K8S_NAMESPACE}..."
                 timeout(time: 5, unit: 'MINUTES') {
-                    sh """
-                        kubectl rollout status deployment/${ARGOCD_APP_NAME} \
-                            -n ${K8S_NAMESPACE} \
+                    sh '''
+                        kubectl rollout status deployment/hello-kubernetes-gitops \
+                            -n hello-kubernetes-ns \
                             --timeout=5m
-                    """
+                    '''
                 }
                 echo "✅ Deployment rollout complete!"
 
                 script {
                     // Print current pod status for visibility
                     def pods = sh(
-                        script: "kubectl get pods -n ${K8S_NAMESPACE} -o wide",
+                        script: 'kubectl get pods -n hello-kubernetes-ns -o wide',
                         returnStdout: true
                     ).trim()
-                    echo "Current pods in ${K8S_NAMESPACE}:\n${pods}"
+                    echo "Current pods:\n${pods}"
                 }
             }
         }
 
         stage('5. Smoke Test') {
             steps {
-                echo "Running smoke test against ${APP_HEALTH_URL}..."
+                echo "Running smoke test against ${env.APP_HEALTH_URL}..."
                 retry(3) {
                     script {
-                        def status = sh(
-                            script: "curl -s -o /dev/null -w '%{http_code}' ${APP_HEALTH_URL} --connect-timeout 5",
+                        def httpStatus = sh(
+                            script: "curl -s -o /dev/null -w '%{http_code}' ${env.APP_HEALTH_URL} --connect-timeout 5",
                             returnStdout: true
                         ).trim()
-                        if (status == '200') {
-                            echo "✅ Smoke test passed! App responded with HTTP ${status}."
+                        if (httpStatus == '200') {
+                            echo "✅ Smoke test passed! App responded with HTTP ${httpStatus}."
                         } else {
-                            error("❌ Smoke test failed! Expected HTTP 200 but got ${status}.")
+                            error("❌ Smoke test failed! Expected HTTP 200 but got HTTP ${httpStatus}.")
                         }
                     }
                 }
@@ -108,25 +108,26 @@ pipeline {
 
     post {
         success {
-            echo """
-            ============================================================
-            ✅  CD PIPELINE COMPLETE — DEPLOYMENT SUCCESSFUL
-            ============================================================
-            📦  Image Tag   : ${env.NEW_IMAGE_TAG ?: 'N/A'}
-            🎯  ArgoCD App  : ${ARGOCD_APP_NAME}
-            🌐  App URL     : ${APP_HEALTH_URL}
-            ============================================================
-            """
+            script {
+                def tag = env.NEW_IMAGE_TAG ?: 'N/A'
+                echo """
+============================================================
+✅  CD PIPELINE COMPLETE — DEPLOYMENT SUCCESSFUL
+============================================================
+📦  Image Tag   : ${tag}
+🎯  ArgoCD App  : ${env.ARGOCD_APP_NAME}
+🌐  App URL     : ${env.APP_HEALTH_URL}
+============================================================"""
+            }
         }
         failure {
             echo """
-            ============================================================
-            ❌  CD PIPELINE FAILED
-            ============================================================
-            Check the stage logs above for details.
-            ArgoCD App: ${ARGOCD_APP_NAME}
-            ============================================================
-            """
+============================================================
+❌  CD PIPELINE FAILED
+============================================================
+Check the stage logs above for details.
+ArgoCD App: ${env.ARGOCD_APP_NAME}
+============================================================"""
         }
         always {
             echo 'CD pipeline finished.'
