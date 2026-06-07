@@ -139,9 +139,11 @@ ArgoCD App: ${env.ARGOCD_APP_NAME}
         always {
             echo 'Cleaning up workspace...'
             cleanWs()
-            echo 'Cleaning up Docker build cache and dangling images...'
+            echo 'Cleaning up Docker build cache and dangling images on Mac...'
             sh 'docker builder prune -f'
             sh 'docker image prune -f'
+            echo 'Cleaning up unused Docker images inside Minikube...'
+            sh 'minikube ssh "docker image prune -a -f" || true'
             echo 'CD pipeline finished.'
         }
     }
