@@ -26,7 +26,7 @@ images:
 # Only the gateway is exposed externally via NodePort
 gateway:
   port: 3000
-  nodePort: 32001
+  nodePort: 32000
 
 # Backend services — ClusterIP (internal only, gateway calls them)
 familyService:
