@@ -8,19 +8,19 @@ namespace: hello-kubernetes-ns
 images:
   gateway:
     repository: dilipnigam007/family-gateway
-    tag: "22"
+    tag: "23"
     pullPolicy: Always
   family:
     repository: dilipnigam007/family-svc
-    tag: "22"
+    tag: "23"
     pullPolicy: Always
   messages:
     repository: dilipnigam007/messages-svc
-    tag: "22"
+    tag: "23"
     pullPolicy: Always
   events:
     repository: dilipnigam007/events-svc
-    tag: "22"
+    tag: "23"
     pullPolicy: Always
 
 # Only the gateway is exposed externally via NodePort
