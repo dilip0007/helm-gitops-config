@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: api-gateway
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+    spec:
+      containers:
+        - name: api-gateway
+          image: "{{ .Values.images.gateway.repository }}:{{ .Values.images.gateway.tag }}"
+          imagePullPolicy: {{ .Values.images.gateway.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.gateway.port }}
+          env:
+            - name: PORT
+              value: "{{ .Values.gateway.port }}"
+            - name: FAMILY_SERVICE_URL
+              value: "http://family-service:{{ .Values.familyService.port }}"
+            - name: MESSAGES_SERVICE_URL
+              value: "http://messages-service:{{ .Values.messagesService.port }}"
+            - name: EVENTS_SERVICE_URL
+              value: "http://events-service:{{ .Values.eventsService.port }}"

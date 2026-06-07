@@ -1,28 +1,39 @@
-# Default values for hello-kubernetes.
-# This is a YAML-formatted file.
-# Declare variables to be passed into your templates.
+# Default values for Nigam Family Microservices App
+# 4 services: api-gateway, family-service, messages-service, events-service
 
-replicaCount: 2
+replicaCount: 1
 
-image:
-  repository: dilipnigam007/hello-gitops-app
-  pullPolicy: Always
-  # Overrides the image tag whose default is the chart appVersion.
-  tag: "14"
+namespace: hello-kubernetes-ns
 
-service:
-  type: NodePort
-  port: 8080
-  nodePort: 32000
+images:
+  gateway:
+    repository: dilipnigam007/family-gateway
+    tag: "1"
+    pullPolicy: Always
+  family:
+    repository: dilipnigam007/family-svc
+    tag: "1"
+    pullPolicy: Always
+  messages:
+    repository: dilipnigam007/messages-svc
+    tag: "1"
+    pullPolicy: Always
+  events:
+    repository: dilipnigam007/events-svc
+    tag: "1"
+    pullPolicy: Always
 
-ingress:
-  enabled: false
-  className: ""
-  annotations: {}
-  hosts:
-    - host: chart-example.local
-      paths:
-        - path: /
-          pathType: ImplementationSpecific
-  tls: []
+# Only the gateway is exposed externally via NodePort
+gateway:
+  port: 3000
+  nodePort: 32001
 
+# Backend services — ClusterIP (internal only, gateway calls them)
+familyService:
+  port: 3001
+
+messagesService:
+  port: 3002
+
+eventsService:
+  port: 3003

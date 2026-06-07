@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: family-service
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: family-service
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: family-service
+  template:
+    metadata:
+      labels:
+        app: family-service
+    spec:
+      containers:
+        - name: family-service
+          image: "{{ .Values.images.family.repository }}:{{ .Values.images.family.tag }}"
+          imagePullPolicy: {{ .Values.images.family.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.familyService.port }}
+          env:
+            - name: PORT
+              value: "{{ .Values.familyService.port }}"
