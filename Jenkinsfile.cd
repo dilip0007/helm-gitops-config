@@ -26,7 +26,7 @@ pipeline {
                 script {
                     // Extract the image tag using sed (no dollar-sign issues)
                     env.NEW_IMAGE_TAG = sh(
-                        script: "grep 'tag:' ${env.HELM_CHART_DIR}/values.yaml | sed \"s/.*tag: //;s/\\\"//g\"",
+                        script: "grep -m 1 'tag:' ${env.HELM_CHART_DIR}/values.yaml | sed \"s/.*tag: //;s/\\\"//g\"",
                         returnStdout: true
                     ).trim()
                     echo "==================================================="
@@ -68,9 +68,10 @@ pipeline {
                 echo "Waiting for deployment rollout to complete in namespace: ${env.K8S_NAMESPACE}..."
                 timeout(time: 5, unit: 'MINUTES') {
                     sh '''
-                        kubectl rollout status deployment/hello-kubernetes-gitops \
-                            -n hello-kubernetes-ns \
-                            --timeout=5m
+                        kubectl rollout status deployment/api-gateway -n hello-kubernetes-ns --timeout=5m
+                        kubectl rollout status deployment/family-service -n hello-kubernetes-ns --timeout=5m
+                        kubectl rollout status deployment/messages-service -n hello-kubernetes-ns --timeout=5m
+                        kubectl rollout status deployment/events-service -n hello-kubernetes-ns --timeout=5m
                     '''
                 }
                 echo "✅ Deployment rollout complete!"
